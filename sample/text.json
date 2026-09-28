@@ -1,0 +1,88 @@
+{
+  "state": {
+    "text": "",
+    "sa": [],
+    "rank": [],
+    "lcp": [],
+    "orders": [],
+    "ranks": [],
+    "groups": [],
+    "start_order": [],
+    "start_rank": [],
+    "queries": [],
+    "loaded": 0,
+    "builds": 0,
+    "located": 0
+  },
+  "events": [
+    {
+      "kind": "load",
+      "text": "mississippi"
+    },
+    {
+      "kind": "build"
+    },
+    {
+      "kind": "locate",
+      "i": 3,
+      "j": 5
+    },
+    {
+      "kind": "locate",
+      "i": 1,
+      "j": 4
+    },
+    {
+      "kind": "locate",
+      "i": 7,
+      "j": 10
+    },
+    {
+      "kind": "locate",
+      "i": 3,
+      "j": 3
+    },
+    {
+      "kind": "locate",
+      "i": 0,
+      "j": 11
+    },
+    {
+      "kind": "build"
+    },
+    {
+      "kind": "locate",
+      "i": 4,
+      "j": 9
+    },
+    {
+      "kind": "load",
+      "text": "b@nana"
+    },
+    {
+      "kind": "load",
+      "text": "a"
+    },
+    {
+      "kind": "load",
+      "text": 7
+    },
+    {
+      "kind": "load",
+      "text": "banana"
+    },
+    {
+      "kind": "locate",
+      "i": 0,
+      "j": 1
+    },
+    {
+      "kind": "build"
+    },
+    {
+      "kind": "locate",
+      "i": 0,
+      "j": 2
+    }
+  ]
+}

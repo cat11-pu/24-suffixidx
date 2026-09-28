@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>suffixidx 后缀排名阶梯</title>
+<style>
+:root{color-scheme:dark}
+body{margin:0;background:#0b1512;color:#d9e9e1;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.bar{position:sticky;top:0;z-index:9;display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;
+     background:#10201b;border-bottom:1px solid #1f3d32;padding:10px 16px}
+.bar b{color:#8fe3b0;font-weight:600;font-size:13px}
+.wrap{padding:14px 16px 44px;max-width:1180px}
+section{border-left:3px solid #1f3d32;padding:2px 0 2px 12px;margin:0 0 20px}
+h2{font-size:11px;letter-spacing:2px;color:#6f9c88;margin:0 0 8px;font-weight:600}
+.strip{display:flex;flex-wrap:wrap;gap:2px}
+.ch{width:20px;text-align:center;background:#142a23;border-radius:3px;padding:3px 0;font-size:12px;color:#9fd8bb}
+.ch i{display:block;font-size:9px;color:#5f8a76;font-style:normal}
+.row{display:flex;align-items:center;gap:3px;margin:3px 0}
+.head{width:250px;flex:none;font-size:11px;color:#7fae99}
+.cell{width:28px;height:23px;line-height:23px;text-align:center;border-radius:3px;font-size:11px;color:#06120e;position:relative}
+.cell em{position:absolute;right:2px;bottom:-1px;font-style:normal;font-size:8px;opacity:.8}
+.lcp{display:flex;align-items:flex-end;gap:3px;height:40px}
+.lcpslot{width:28px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}
+.lcpbar{width:16px;background:#f0a64a;border-radius:2px}
+.lcpval{font-size:9px;color:#e8c48a}
+.qrow{display:flex;gap:10px;font-size:12px;color:#bcd8ca;padding:2px 0;border-bottom:1px dotted #1c332b}
+.qcell{min-width:58px}
+.qcell.wide{min-width:170px;color:#8fe3b0}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;font-size:12px;color:#7fae99}
+input{font:inherit;background:#0d1c17;color:#d9e9e1;border:1px solid #22463a;border-radius:4px;padding:4px 7px}
+button{font:inherit;background:#1b3a2f;color:#c9f0dc;border:1px solid #2c5b49;border-radius:4px;padding:4px 12px;cursor:pointer}
+button.alt{background:#3a2f1b;border-color:#5b4c2c;color:#f0dcb4}
+#note{font-size:12px;color:#8fb8a4;margin:6px 0}
+</style></head>
+<body>
+<div class="bar" id="status"></div>
+<div class="wrap">
+  <section>
+    <h2>文本带</h2>
+    <div class="strip" id="textstrip"></div>
+  </section>
+  <section>
+    <h2>轮次阶梯（一行一轮；格是按该轮顺序排的后缀起始下标，底色是分组，角标是位次）</h2>
+    <div id="ladder"></div>
+  </section>
+  <section>
+    <h2>相邻公共前缀（按后缀数组的次序对齐）</h2>
+    <div class="lcp" id="lcprow"></div>
+  </section>
+  <section>
+    <h2>查询台</h2>
+    <div class="ctrl">
+      文本 <input id="textin" size="16" value="banana">
+      <button id="loadbtn">装载</button>
+      <button id="buildbtn" class="alt">建表</button>
+    </div>
+    <div class="ctrl">
+      左后缀 <input id="qleft" size="3" value="0">
+      右后缀 <input id="qright" size="3" value="3">
+      <button id="querybtn">定位</button>
+    </div>
+    <div id="note"></div>
+    <div id="qtable"></div>
+  </section>
+</div>
+<script type="module">
+import { render } from "./app.js";
+
+const spec = {"state": {"text": "", "sa": [], "rank": [], "lcp": [], "orders": [], "ranks": [], "groups": [], "start_order": [], "start_rank": [], "queries": [], "loaded": 0, "builds": 0, "located": 0}, "events": [{"kind": "load", "text": "mississippi"}, {"kind": "build"}, {"kind": "locate", "i": 3, "j": 5}, {"kind": "locate", "i": 1, "j": 4}, {"kind": "locate", "i": 7, "j": 10}, {"kind": "locate", "i": 3, "j": 3}, {"kind": "locate", "i": 0, "j": 11}, {"kind": "build"}, {"kind": "locate", "i": 4, "j": 9}, {"kind": "load", "text": "b@nana"}, {"kind": "load", "text": "a"}, {"kind": "load", "text": 7}, {"kind": "load", "text": "banana"}, {"kind": "locate", "i": 0, "j": 1}, {"kind": "build"}, {"kind": "locate", "i": 0, "j": 2}]};
+
+function sign(flag) {
+  return flag ? "\u2713" : "\u2717";
+}
+
+function hueOf(level) {
+  return "hsl(" + ((level * 53) % 360) + ", 52%, " + (26 + (level % 4) * 7) + "%)";
+}
+
+function rowOf(label, order, levels) {
+  const row = document.createElement("div");
+  row.className = "row";
+  const head = document.createElement("div");
+  head.className = "head";
+  head.textContent = label;
+  row.appendChild(head);
+  order.forEach(function (at, spot) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    const level = levels ? levels[at] : spot;
+    cell.style.background = hueOf(level);
+    cell.textContent = String(at);
+    const mark = document.createElement("em");
+    mark.textContent = String(level);
+    cell.appendChild(mark);
+    row.appendChild(cell);
+  });
+  return row;
+}
+
+function draw() {
+  const view = render(spec);
+  const status = document.getElementById("status");
+  status.textContent = "";
+  [["文本", view.text || "空"], ["轮数", view.rounds], ["装载", view.loaded],
+   ["建表", view.builds], ["定位", view.located], ["不同子串", view.distinct],
+   ["最长重复", view.repeat_len + " 起点 " + view.repeat_at]].forEach(function (pair) {
+    const bit = document.createElement("b");
+    bit.textContent = pair[0] + " " + pair[1];
+    status.appendChild(bit);
+  });
+  const marks = document.createElement("span");
+  marks.textContent = "排列 " + sign(view.sa_perm) + " 升序 " + sign(view.sorted_ok) +
+    " 互逆 " + sign(view.rank_ok) + " 前缀 " + sign(view.lcp_ok) +
+    " 分组 " + sign(view.groups_ok) + " 收尾等长 " + sign(view.final_groups);
+  marks.style.color = (view.sa_perm && view.sorted_ok && view.rank_ok && view.lcp_ok &&
+    view.groups_ok && view.final_groups) ? "#8fe3b0" : "#ff9a8a";
+  status.appendChild(marks);
+
+  const strip = document.getElementById("textstrip");
+  strip.textContent = "";
+  String(view.text || "").split("").forEach(function (ch, at) {
+    const cell = document.createElement("div");
+    cell.className = "ch";
+    cell.textContent = ch;
+    const tick = document.createElement("i");
+    tick.textContent = String(at);
+    cell.appendChild(tick);
+    strip.appendChild(cell);
+  });
+
+  const ladder = document.getElementById("ladder");
+  ladder.textContent = "";
+  ladder.appendChild(rowOf("起始 · 按字符位次", view.start_order, view.start_rank));
+  view.orders.forEach(function (order, t) {
+    const moved = t === 0 ? "" : (view.groups[t] >= view.groups[t - 1] ? " · 不减" : " · 掉了");
+    ladder.appendChild(rowOf("第 " + (t + 1) + " 轮 · 步长 " + (1 << t) +
+      " · 分组 " + view.groups[t] + moved, order, view.ranks[t]));
+  });
+  const last = view.groups.length > 0 ? view.groups[view.groups.length - 1] : "无";
+  ladder.appendChild(rowOf("后缀数组 · 排列 " + sign(view.sa_perm) + " · 升序 " + sign(view.sorted_ok) +
+    " · 分组 " + last + " 等长 " + sign(view.final_groups), view.sa, view.rank));
+
+  const lcprow = document.getElementById("lcprow");
+  lcprow.textContent = "";
+  const tag = document.createElement("div");
+  tag.className = "head";
+  tag.textContent = "合规 " + sign(view.lcp_ok) + " · 最大 " + view.repeat_len;
+  lcprow.appendChild(tag);
+  view.lcp.forEach(function (value, k) {
+    const slot = document.createElement("div");
+    slot.className = "lcpslot";
+    const bar = document.createElement("div");
+    bar.className = "lcpbar";
+    bar.style.height = String(2 + (value || 0) * 5) + "px";
+    const label = document.createElement("div");
+    label.className = "lcpval";
+    label.textContent = String(value);
+    slot.appendChild(bar);
+    slot.appendChild(label);
+    lcprow.appendChild(slot);
+    if (k === 0) {
+      tag.textContent = tag.textContent + " · 首项 " + value;
+    }
+  });
+
+  const note = document.getElementById("note");
+  const rejected = view.log.slice().reverse().find(function (row) { return row[2] === "打回"; });
+  note.textContent = rejected ? ("第 " + rejected[0] + " 条事件打回：" + rejected[1] + " " + rejected[3])
+    : "没有打回的事件。";
+
+  const table = document.getElementById("qtable");
+  table.textContent = "";
+  view.queries.forEach(function (row) {
+    const line = document.createElement("div");
+    line.className = "qrow";
+    const width = typeof row[2] === "number" ? row[2] : 0;
+    [String(row[0]), String(row[1]), String(row[2]),
+     String(view.text || "").slice(row[0], row[0] + width)].forEach(function (text, spot) {
+      const cell = document.createElement("span");
+      cell.className = spot === 3 ? "qcell wide" : "qcell";
+      cell.textContent = text;
+      line.appendChild(cell);
+    });
+    table.appendChild(line);
+  });
+}
+
+document.getElementById("loadbtn").addEventListener("click", function () {
+  spec.events.push({ kind: "load", text: document.getElementById("textin").value });
+  draw();
+});
+document.getElementById("buildbtn").addEventListener("click", function () {
+  spec.events.push({ kind: "build" });
+  draw();
+});
+document.getElementById("querybtn").addEventListener("click", function () {
+  spec.events.push({ kind: "locate", i: Number(document.getElementById("qleft").value),
+                     j: Number(document.getElementById("qright").value) });
+  draw();
+});
+
+draw();
+</script>
+</body>
+</html>
